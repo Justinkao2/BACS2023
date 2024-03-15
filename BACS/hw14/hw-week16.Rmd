@@ -1,0 +1,299 @@
+---
+title: "BACS HW (Week 14)"
+author: '108020024'
+date: "due on 06/04 (Sun) Helped by 108020033"
+output:
+  pdf_document:
+     latex_engine: xelatex
+
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE) 
+
+```
+
+### Question 1)  Earlier, we examined a dataset from a security survey sent to customers of e-commerce websites. However, we only used the eigenvalue > 1 criteria and the screeplot “elbow” rule to find a suitable number of components. Let’s perform a parallel analysis as well this week:
+
+
+
+```{r}
+# Load the data and remove missing values
+cars <- read.table("auto-data.txt", header=FALSE, na.strings = "?")
+names(cars) <- c("mpg", "cylinders", "displacement", "horsepower", "weight", "acceleration", 
+                 "model_year", "origin", "car_name")
+cars$car_name <- NULL
+cars <- na.omit(cars)
+# IMPORTANT: Shuffle the rows of data in advance for this project!
+set.seed(27935752) # use your own seed, or use this one to compare to next class notes
+cars <- cars[sample(1:nrow(cars)),]
+# DV and IV of formulas we are interested in
+cars_full <- mpg ~ cylinders + displacement + horsepower + weight + acceleration + 
+                   model_year + factor(origin)
+cars_reduced <- mpg ~ weight + acceleration + model_year + factor(origin)
+cars_full_poly2 <- mpg ~ poly(cylinders, 2) + poly(displacement, 2) + poly(horsepower, 2) + 
+                         poly(weight, 2) + poly(acceleration, 2) + model_year + 
+                         factor(origin)
+cars_reduced_poly2 <- mpg ~ poly(weight, 2) + poly(acceleration,2) + model_year + 
+                            factor(origin)
+cars_reduced_poly6 <- mpg ~ poly(weight, 6) + poly(acceleration,6) + model_year + 
+                            factor(origin)
+
+
+```
+
+### Question 1) Compute and report the in-sample fitting error (MSEin) of all the models described above. It might be easier to first write a function called mse_in(…) that returns the fitting error of a single model; you can then apply that function to each model (feel free to ask us for help!). We will discuss these results later.
+
+```{r}
+
+#lm_full: A full model (cars_full) using linear regression
+mean((cars$mpg - fitted(lm(cars_full,data = cars)))^2)
+
+#lm_reduced: A reduced model (cars_reduced) using linear regression
+
+mean((cars$mpg - fitted(lm(cars_reduced,data = cars)))^2)
+
+#lm_poly2_full: A full quadratic model (cars_full_poly2) using linear regression
+mean((cars$mpg - fitted(lm(cars_full_poly2,data = cars)))^2)
+
+#lm_poly2_reduced: A reduced quadratic model (cars_reduced_poly2) using linear regression
+mean((cars$mpg - fitted(lm(cars_reduced_poly2,data = cars)))^2)
+
+
+#lm_poly6_reduced: A reduced 6th order polynomial (cars_reduced_poly6) using linear regression
+
+mean((cars$mpg - fitted(lm(cars_reduced_poly6,data = cars)))^2)
+
+library(rpart)
+
+#rt_full: A full model (cars_full) using a regression tree
+mean(residuals(rpart(cars_full,data = cars))^2)
+
+
+#rt_reduced: A reduced model (cars_reduced) using a regression tree
+mean(residuals(rpart(cars_reduced,data = cars))^2)
+
+```
+
+
+
+### Question 2) Let’s try some simple evaluation of prediction error. Let’s work with the lm_reduced model and test its predictive performance with split-sample testing:
+
+
+### a) Split the data into 70:30 for training:test (did you remember to shuffle the data earlier?)
+
+```{r}
+
+
+#make this example reproducible
+set.seed(123)
+
+sample <- sample(c(TRUE, FALSE), nrow(cars), replace=TRUE, prob=c(0.7,0.3))
+
+cars_train = cars[sample, ]
+cars_test =  cars[!sample, ]
+
+```
+
+### b) Retrain the lm_reduced model on just the training dataset (call the new model: trained_model);Show the coefficients of the trained model.
+
+
+```{r}
+trained_model <- lm(cars_reduced,data = cars_train)
+summary(trained_model)
+```
+
+
+### c) Use the trained_model model to predict the mpg of the test dataset.What is the in-sample mean-square fitting error (MSEin) of the trained model?.What is the out-of-sample mean-square prediction error (MSEout) of the test dataset?
+
+
+```{r}
+
+mean(residuals(trained_model)^2)
+
+```
+
+
+The in-sample mean-square fitting error is 11.45811.
+
+
+```{r}
+
+
+mean( (predict(trained_model, cars_test) - cars_test$mpg)^2 )
+
+```
+
+The out-sample mean-square fitting error is 10.00899
+
+
+### d) Show a data frame of the test set’s actual mpg values, the predicted mpg values, and the difference of the two; Just show us the first several rows of this dataframe.
+
+```{r}
+
+actual <- cars_test$mpg
+predicted  <- predict(trained_model, cars_test)
+difference <- abs(actual - predicted)
+
+df <- data.frame(actual, predicted,difference)
+
+head (df)
+
+```
+
+### Question 3) Let’s use k-fold cross validation (k-fold CV) to see how all these models perform predictively!
+
+### a) Write a function that performs k-fold cross-validation (see class notes and ask us online for hints!). Name your function k_fold_mse(model, dataset, k=10, …) – it should return the MSEout of the operation. Your function must accept a model, dataset and number of folds (k) but can also have whatever other parameters you wish.
+
+
+```{r}
+k_fold_mse <- function(dataset, k, model) {
+
+  fold_pred_errors <- sapply(1:k, \(i) {
+    fold_i_pe(i, k, dataset, model )
+  })
+  pred_errors <- unlist(fold_pred_errors)
+  mean(pred_errors^2)
+}
+
+
+
+fold_i_pe <- function(i, k, dataset, model) {
+
+  dataset_temp <- dataset[sample(1:nrow(dataset)), ]
+
+  folds <- cut(1:nrow(dataset_temp),k, labels = FALSE)
+  test_indices <- which(folds == i)
+  test_set <- dataset_temp[test_indices, ]
+  train_set <- dataset_temp[-test_indices, ]
+  train_model <- update(model, data = train_set)
+  predictions <- predict(trained_model,test_set)
+  test_set$mpg - predictions
+}
+
+```
+
+### i) Use your k_fold_mse function to find and report the 10-fold CV MSEout for all models.
+
+```{R}
+
+#lm_full: A full model (cars_full) using linear regression
+
+k_fold_mse(cars, k = 10 , lm(cars_full,data = cars))
+
+#lm_reduced: A reduced model (cars_reduced) using linear regression
+
+k_fold_mse(cars, k = 10 , lm(cars_reduced,data = cars))
+
+#lm_poly2_full: A full quadratic model (cars_full_poly2) using linear regression
+
+k_fold_mse(cars, k = 10 , lm(cars_full_poly2,data = cars))
+
+#lm_poly2_reduced: A reduced quadratic model (cars_reduced_poly2) using linear regression
+
+k_fold_mse(cars, k = 10 , lm(cars_reduced_poly2,data = cars))
+
+#lm_poly6_reduced: A reduced 6th order polynomial (cars_reduced_poly6) using linear regression
+
+k_fold_mse(cars, k = 10 , lm(cars_reduced_poly6,data = cars))
+
+#rt_full: A full model (cars_full) using a regression tree
+
+k_fold_mse(cars, k = 10 , rpart(cars_full,data = cars))
+
+#rt_reduced: A reduced model (cars_reduced) using a regression tree
+
+k_fold_mse(cars, k = 10 , rpart(cars_reduced,data = cars))
+
+
+```
+
+
+### ii) For all the models, which is bigger — the fit error (MSEin) or the prediction error (MSEout)? (optional: why do you think that is?)
+
+Prediction error is bigger.
+
+
+### iii) Does the 10-fold MSEout of a model remain stable (same value) if you re-estimate it over and over again, or does it vary? (show a few repetitions for any model and decide!)
+
+
+It varies, since we shuffle the data each time.
+
+```{r}
+k_fold_mse(cars, k = 10 , lm(cars_full,data = cars))
+k_fold_mse(cars, k = 10 , lm(cars_full,data = cars))
+k_fold_mse(cars, k = 10 , lm(cars_full,data = cars))
+k_fold_mse(cars, k = 10 , lm(cars_full,data = cars))
+k_fold_mse(cars, k = 10 , lm(cars_full,data = cars))
+
+```
+
+### b) Make sure your k_fold_mse() function can accept as many folds as there are rows (i.e., k=392).
+
+### i) How many rows are in the training dataset and test dataset of each iteration of k-fold CV when k=392?
+
+There will be 391 rows in training dataset and 1 row in test dataset of each iteration of k-fold CV when k=392.
+
+
+### ii) Report the k-fold CV MSEout for all models using k=392.
+
+
+```{R}
+
+#lm_full: A full model (cars_full) using linear regression
+
+k_fold_mse(cars, k = 392 , lm(cars_full,data = cars))
+
+#lm_reduced: A reduced model (cars_reduced) using linear regression
+
+k_fold_mse(cars, k = 392 , lm(cars_reduced,data = cars))
+
+#lm_poly2_full: A full quadratic model (cars_full_poly2) using linear regression
+
+k_fold_mse(cars, k = 392 , lm(cars_full_poly2,data = cars))
+
+#lm_poly2_reduced: A reduced quadratic model (cars_reduced_poly2) using linear regression
+
+k_fold_mse(cars, k = 392 , lm(cars_reduced_poly2,data = cars))
+
+#lm_poly6_reduced: A reduced 6th order polynomial (cars_reduced_poly6) using linear regression
+
+k_fold_mse(cars, k = 392 , lm(cars_reduced_poly6,data = cars))
+
+#rt_full: A full model (cars_full) using a regression tree
+
+k_fold_mse(cars, k = 392 , rpart(cars_full,data = cars))
+
+#rt_reduced: A reduced model (cars_reduced) using a regression tree
+
+k_fold_mse(cars, k = 392 , rpart(cars_reduced,data = cars))
+
+
+```
+
+
+### iii) When k=392, does the MSEout of a model remain stable (same value) if you re-estimate it over and over again, or does it vary? (show a few repetitions for any model and decide!)
+
+
+```{r eval=FALSE, include=FALSE}
+k_fold_mse(cars, k = 392 , lm(cars_full,data = cars))
+k_fold_mse(cars, k = 392 , lm(cars_full,data = cars))
+k_fold_mse(cars, k = 392 , lm(cars_full,data = cars))
+
+```
+
+[1] 11.29344
+[1] 11.29344
+[1] 11.29344
+
+### iv) Looking at the fit error (MSEin) and prediction error (MSEout; k=392) of the full models versus their reduced counterparts (with the same training technique), does multicollinearity present in the full models seem to hurt their fit error and/or prediction error?(optional: if not, then when/why are analysts so scared of multicollinearity?)
+
+Multicollinearity present in the full models seem to not hurt their fit error and prediction error.
+
+### v) Look at the fit error and prediction error (k=392) of the reduced quadratic versus 6th order polynomial regressions — did adding more higher-order terms hurt the fit and/or predictions?(optional: What does this imply? Does adding complex terms improve fit or prediction?)
+
+Adding more higher-order terms hurt the predictions.

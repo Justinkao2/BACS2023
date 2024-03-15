@@ -1,0 +1,329 @@
+---
+title: "BACS HW (Week 7)"
+author: '108020024'
+date: "due on 04/9 (Sun) Helped by 108020033"
+output:
+  pdf_document:
+     latex_engine: xelatex
+
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE) 
+
+```
+
+### Question 1)  Let’s explore and describe the data and develop some early intuitive thoughts:
+
+
+
+```{r}
+pls_media1 <- read.csv("pls-media1.csv")
+pls_media2 <- read.csv("pls-media2.csv")
+pls_media3 <- read.csv("pls-media3.csv")
+pls_media4 <- read.csv("pls-media4.csv")
+```
+
+### a) What are the means of viewers’ intentions to share (INTEND.0) on each of the four media types?
+
+```{r}
+mean(pls_media1$INTEND.0)
+mean(pls_media2$INTEND.0)
+mean(pls_media3$INTEND.0)
+mean(pls_media4$INTEND.0)
+
+```
+The means for each of the four media types:
+
+pls_media1 = 4.809524 
+
+pls_media2 = 3.947368 
+
+pls_media3 = 4.725 
+
+pls_media4 = 4.891304 
+
+
+### b) Visualize the distribution and mean of intention to share, across all four media.(Your choice of data visualization; Try to put them all on the same plot and make it look sensible)
+
+
+```{r}
+
+plot(density(pls_media1$INTEND.0),
+     col="cornflowerblue",
+     lwd=2,
+     ylim = c(0,0.3),
+     main = "Distribution and mean of intention to share across all four media")
+lines(density(pls_media2$INTEND.0), col="green", lwd=2)
+lines(density(pls_media3$INTEND.0), col="red", lwd=2)
+lines(density(pls_media4$INTEND.0), col="black", lwd=2)
+abline(v = mean(pls_media1$INTEND.0), col="cornflowerblue", lwd=3, lty=3)
+abline(v = mean(pls_media2$INTEND.0), col="green", lwd=3, lty=3)
+abline(v = mean(pls_media3$INTEND.0), col="red", lwd=3, lty=3)
+abline(v = mean(pls_media4$INTEND.0), col="black", lwd=3, lty=3)
+
+
+legend(7, 0.3, lty=1, c("media1", "media2","media3","media4"), col=c("cornflowerblue", "green","red","black"))
+
+
+
+```
+
+
+
+### c) From the visualization alone, do you feel that media type makes a difference on intention to share?
+
+I'll say I feel that media type makes a difference on intention to share from the visualization alone.
+
+The visualization for the four media data have many distracting features that make comparisons hard. The trend of the distribution are similar, however it is difficult for me to describe the difference  details on intention to share between the four media data with a clear description, such as the peak difference between the four medias.
+
+
+### Question 2) Let’s try traditional one-way ANOVA:
+
+### a) State the null and alternative hypotheses when comparing INTEND.0 across four groups in ANOVA
+
+
+
+$H_0$ : The means of the INTEND.0 across four medias are the same.
+
+$H_1$ : The means of the INTEND.0 across four medias are not the same.
+
+
+### b) Let’s compute the F-statistic ourselves:
+
+        i) Show the code and results of computing MSTR, MSE, and F
+        
+```{r}
+
+library(reshape2)
+
+df = list(media1=pls_media1$INTEND.0,
+          media2=pls_media2$INTEND.0,
+          media3=pls_media3$INTEND.0,
+          media4=pls_media4$INTEND.0)
+
+
+
+media <- melt(df, id.vars = NULL,
+variable.name = "L1",
+value.name = "INTEND.0")
+
+
+#MSTR
+sstr <- 
+  (length(pls_media1$INTEND.0)*(mean(pls_media1$INTEND.0)-mean(media$INTEND.0))^2)+
+  (length(pls_media2$INTEND.0)*(mean(pls_media2$INTEND.0)-mean(media$INTEND.0))^2)+
+  (length(pls_media3$INTEND.0)*(mean(pls_media3$INTEND.0)-mean(media$INTEND.0))^2)+
+  (length(pls_media4$INTEND.0)*(mean(pls_media4$INTEND.0)-mean(media$INTEND.0))^2)
+
+df_mstr <- 4-1
+mstr <- sstr/df_mstr
+
+#MSE
+sse <-   
+  (length(pls_media1$INTEND.0)-1)*var(pls_media1$INTEND.0)+
+  (length(pls_media2$INTEND.0)-1)*var(pls_media2$INTEND.0)+
+  (length(pls_media3$INTEND.0)-1)*var(pls_media3$INTEND.0)+
+  (length(pls_media4$INTEND.0)-1)*var(pls_media4$INTEND.0)
+
+df_mse <- 
+  length(pls_media1$INTEND.0)+
+  length(pls_media2$INTEND.0)+
+  length(pls_media3$INTEND.0)+
+  length(pls_media4$INTEND.0)- 4
+
+mse <- sse/df_mse
+
+
+#F
+f_value <- mstr/mse
+```
+
+The value for MSTR, MSE, and F are:
+
+MSTR = `r mstr`
+
+MSE = `r mse`
+
+F = `r f_value`
+
+
+
+
+        ii) Compute the p-value of F, from the null F-distribution; is the F-value significant? 
+        If so, state your conclusion for the hypotheses.
+
+```{r}
+
+p_value <- pf(f_value, df_mstr, df_mse, lower.tail=FALSE)
+
+```
+
+The p_value is `r p_value` > 0.05, cannot reject the null hypothesis that the means of the INTEND.0 across four medias are the same at 5% significance.
+
+### c) Conduct the same one-way ANOVA using the aov() function in R – confirm that you got similar results.
+
+```{r}
+
+anova_model <- aov( media$INTEND.0 ~ factor(media$L1))
+summary(anova_model)
+
+```
+
+The p_value is 0.0529  > 0.05, which confirm that I got similar results from (b), cannot reject the null hypothesis that the means of the INTEND.0 across four medias are the same at 5% significance.
+
+
+### d) Regardless of your conclusions, conduct a post-hoc Tukey test (feel free to use the TukeyHSD() function included in base R) to see if any pairs of media have significantly different means – what do you find?
+
+
+```{r}
+
+TukeyHSD(anova_model, conf.level = 0.05)
+
+```
+
+From the result of the post-hoc Tukey test, didn't find any pairs of media have significantly different means.
+
+### e) Do you feel the classic requirements of one-way ANOVA were met?
+
+ANOVA requires some assumptions to be met:
+
+        1. Each treatment/population’s response variable is normally distributed
+
+Check the normally assumptions:
+
+```{r}
+shapiro.test(pls_media1$INTEND.0)
+shapiro.test(pls_media2$INTEND.0)
+shapiro.test(pls_media3$INTEND.0)
+shapiro.test(pls_media4$INTEND.0)
+
+```
+Under 5% significance level, INTEND.0 across four medias did not passed the normally test, so we cannot assume the normality.
+
+        2. The variance (s2) of the response variables is the same for all treatments/populations
+
+Perform F-test to test whether two population variances are equal.
+
+```{r}
+var.test(pls_media1$INTEND.0, pls_media2$INTEND.0, alternative = "two.sided")
+var.test(pls_media1$INTEND.0, pls_media3$INTEND.0, alternative = "two.sided")
+var.test(pls_media1$INTEND.0, pls_media4$INTEND.0, alternative = "two.sided")
+var.test(pls_media2$INTEND.0, pls_media3$INTEND.0, alternative = "two.sided")
+var.test(pls_media2$INTEND.0, pls_media4$INTEND.0, alternative = "two.sided")
+var.test(pls_media3$INTEND.0, pls_media4$INTEND.0, alternative = "two.sided")
+
+
+```
+
+Under 5% significance level, INTEND.0 across four medias passed the F-test, we can consider variance of the response variables doesn't have significance difference for all four medias.
+
+
+        3. The observations are independent: the response variables are not related between groups
+
+Perform Chi-squared test to test whether the observations are independent.
+
+```{r}
+
+max_length <- max(c(length(pls_media1$INTEND.0),
+                    length(pls_media2$INTEND.0),
+                    length(pls_media3$INTEND.0),
+                    length(pls_media4$INTEND.0)))
+
+mdf = data.frame(media1 = c(pls_media1$INTEND.0,
+                            rep(NA, max_length - length(pls_media1$INTEND.0))),
+                 media2 = c(pls_media2$INTEND.0,
+                            rep(NA, max_length - length(pls_media2$INTEND.0))),
+                 media3 = c(pls_media3$INTEND.0,
+                            rep(NA, max_length - length(pls_media3$INTEND.0))),
+                 media4 = c(pls_media4$INTEND.0,
+                            rep(NA, max_length - length(pls_media4$INTEND.0)))
+                 )
+chisq.test(table(mdf$media1, mdf$media2))
+chisq.test(table(mdf$media1, mdf$media3))
+chisq.test(table(mdf$media1, mdf$media4))
+chisq.test(table(mdf$media2, mdf$media3))
+chisq.test(table(mdf$media2, mdf$media4))
+chisq.test(table(mdf$media3, mdf$media4))
+
+
+```
+
+Under 5% significance level, the observations can be considered as independent.
+
+
+So the data does not met all th classic requirements of one-way ANOVA.
+
+
+### Question 3) Let’s use the non-parametric Kruskal Wallis test:
+
+### a) State the null and alternative hypotheses
+
+
+$H_0$ : All groups would give you a similar value if randomly drawn from them
+
+$H_1$ : At least one group would give you a larger value than another if randomly drawn
+
+
+
+### b) Let’s compute (an approximate) Kruskal Wallis H ourselves (use the formula we saw in class or another formula might have found at a reputable website/book):
+
+
+        i) Show the code and results of computing H
+        
+```{r}
+
+media_ranks <- rank(media$INTEND.0)
+group_ranks <- split(media_ranks,media$L1)
+
+N <- length(media$INTEND.0)
+#
+H <- unname((12/(N*(N+1)))*
+  ((((sapply(group_ranks, sum)[1])^2)/length(pls_media1$INTEND.0))+
+  (((sapply(group_ranks, sum)[2])^2)/length(pls_media2$INTEND.0))+
+  (((sapply(group_ranks, sum)[3])^2)/length(pls_media3$INTEND.0))+
+  (((sapply(group_ranks, sum)[4])^2)/length(pls_media4$INTEND.0)))-(3*(N+1)))
+
+H
+
+```
+
+The value H is `r H` . 
+        
+        ii) Compute the p-value of H, from the null chi-square distribution; is the H value significant?
+        If so, state your conclusion of the hypotheses.
+```{r}
+
+kw_p <- 1 - pchisq(H, df=4-1)
+kw_p
+```
+
+
+The p_value of H is `r kw_p` < 0.05, reject the null hypothesis that all groups would give you a similar value if randomly drawn from them at 5% significance.
+
+### c) Conduct the same test using the kruskal.wallis() function in R – confirm that you got similar results.
+
+
+```{r}
+
+
+kruskal.test(INTEND.0 ~ L1, data = media)
+
+```
+The p_value of H is 0.03166 < 0.05, got a similar result from (b), reject the null hypothesis that all groups would give you av
+
+### d) Regardless of your conclusions, conduct a post-hoc Dunn test (feel free to use the dunnTest() function from the FSA package) to see if the values of any pairs of media are significantly different – what are your conclusions?
+
+
+```{r}
+#install.packages("FSA")
+library(FSA)
+dunnTest(INTEND.0 ~ L1, data = media, method = "bonferroni")
+
+```
+In the comparison of media2 - media4, the adjusted p-value is 0.04742535 < 0.05, media2 and media4 are the only two media that are statistically significantly different from each other under 5% significance level.
+

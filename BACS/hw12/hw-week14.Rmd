@@ -1,0 +1,120 @@
+---
+title: "BACS HW (Week 14)"
+author: '108020024'
+date: "due on 05/24 (Sun) Helped by 108020033"
+output:
+  pdf_document:
+     latex_engine: xelatex
+
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE) 
+
+```
+
+### Question 1)  Earlier, we examined a dataset from a security survey sent to customers of e-commerce websites. However, we only used the eigenvalue > 1 criteria and the screeplot “elbow” rule to find a suitable number of components. Let’s perform a parallel analysis as well this week:
+
+
+
+```{r}
+
+sq <- read.csv("security_questions.csv")
+```
+
+### a) Show a single visualization with scree plot of data, scree plot of simulated noise (use average eigenvalues of ≥ 100 noise samples), and a horizontal line showing the eigenvalue = 1 cutoff.
+
+
+```{r}
+sim_noise_ev <- function(n, p) {
+noise <- data.frame(replicate(p, rnorm(n)))
+eigen(cor(noise))$values
+}
+evalues_noise <- replicate(100, sim_noise_ev(405, 18))
+evalues_mean <- apply(evalues_noise, 1, mean)
+
+screeplot(prcomp(sq, scale. = TRUE), type="lines")
+abline(h = 1, col = "red")
+lines(evalues_mean, type="b")
+
+```
+
+
+### b) How many dimensions would you retain if we used Parallel Analysis?
+
+
+
+I would retain 10 dimensions.
+
+
+### Question 2) Earlier, we treated the underlying dimensions of the security dataset as composites and examined their eigenvectors (weights). Now, let’s treat them as factors and examine factor loadings (use the principal() method from the psych package)
+
+```{r}
+library(psych)
+sq_principal <- principal(sq, nfactor=3, rotate="none", scores=TRUE)
+```
+
+### a) Looking at the loadings of the first 3 principal components, to which components does each item seem to best belong?
+
+```{r}
+sq_principal
+```
+λ > 0.70 is considered a good loading, so most of variable seem to best belong to PC1, but Q4, Q12, Q17 best belong to PC2.
+
+### b) How much of the total variance of the security dataset do the first 3 PCs capture?
+
+0.67
+
+### c) Looking at commonality and uniqueness, which items are less than adequately explained by the first 3 principal components?
+
+Q2
+
+
+### d) How many measurement items share similar loadings between 2 or more components?
+
+```{r}
+sq_principal$loadings
+```
+Q4,Q7, Q9,Q12, Q17
+### e) Can you interpret a ‘meaning’ behind the first principal component from the items that load best upon it? (see the wording of the questions of those items)
+
+The highest load is Q1, I am convinced that this site respects the confidentiality of the transactions received from me . Since it is a  security survey sent to customers of e-commerce websites, if this site respects the confidentiality of the transactions received from me, it is the most important question for the survey.
+
+
+### Question 3) To improve interpretability of loadings, let’s rotate our principal component axes using the varimax technique to get rotated components (extract and rotate only three principal components)
+
+### a) Individually, does each rotated component (RC) explain the same, or different, amount of variance than the corresponding principal components (PCs)?
+
+```{r}
+
+sq_pca_rot <- principal(sq, nfactor=3, rotate="varimax", scores=TRUE)
+sq_pca_rot
+```
+
+The proportion variance explained by RC1 RC2 RC3 are  0.31 0.16 0.19, proportion variance explained by PC1 PC2 PC3 are 0.52 0.09 0.06, so PC1 explain more variance than RC1 , but RC2 and RC3 explain more variance than PC2 and PC3.
+
+
+
+### b) Together, do the three rotated components explain the same, more, or less cumulative variance as the three principal components combined?
+
+The three rotated components explain the same cumulative variance as the three principal components combined, both explained 0.67.
+
+### c) Looking back at the items that shared similar loadings with multiple principal components (#2d), do those items have more clearly differentiated loadings among rotated components?
+
+```{r}
+sq_pca_rot$loadings
+```
+Yes, those items have more clearly differentiated loadings among rotated components.
+
+### d) Can you now more easily interpret the “meaning” of the 3 rotated components from the items that load best upon each of them? (see the wording of the questions of those items)
+
+Yes, now we can more easily interpret the meaning of the 3 rotated components from the items.
+
+### e) If we reduced the number of extracted and rotated components to 2, does the meaning of our rotated components change?
+
+
+Yes, when you reduce the number of extracted and rotated components from a factor analysis, the meaning of the rotated components can change.
